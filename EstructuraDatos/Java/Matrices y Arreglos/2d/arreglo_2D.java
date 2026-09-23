@@ -1,4 +1,4 @@
-public class Array2D {
+public class arreglo_2D{
     public static void main(String[] args) {
         int r = 3, c = 3;
         int[] arr = new int[r * c];
