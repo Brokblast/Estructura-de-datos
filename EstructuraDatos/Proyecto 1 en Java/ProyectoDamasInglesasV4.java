@@ -1,0 +1,272 @@
+import java.util.Scanner;
+public class ProyectoDamasInglesasV4 {
+    public static void limpiar() {
+        System.out.print("\033[H\033[2J");
+        System.out.flush();
+    }
+    
+    private static final int TAMANO_TABLERO = 8;
+    // 0 = vacío, 1 = Roja (R), 2 = Blanca (B)
+    private static int[][] tablero = new int[TAMANO_TABLERO][TAMANO_TABLERO];
+    private static int turnoActual = 1; // 1: Rojas (R), 2: Blancas (B)
+
+    public static void reglamento(){
+        System.out.println("");
+        System.out.println("==========================================================================");
+        System.out.println("                          MOVIMIENTOS BASICOS.");
+        System.out.println("  -Peones: Se mueven una sola casilla a la vez en diagonal hacia ");
+        System.out.println("  adelante, siempre a un espacio vacío. No pueden retroceder");
+        System.out.println("  -Captura (comer): Se salta por encima de la ficha contraria adyacente");
+        System.out.println("  hacia la casilla vacía que está detrás de ella. La ficha capturada");
+        System.out.println("  se retira del tablero.");
+        System.out.println("  -Capturas múltiples: Si tras un salto existe la opción de realizar");
+        System.out.println("  otro salto con la misma pieza, se continúa comiendo en el mismo turno.");
+        System.out.println("--------------------------------------------------------------------------");
+        System.out.println("                        CORONACION Y DAMAS(reyes).");
+        System.out.println("  -Coronar: Cuando un peón llega a la última fila del lado opuesto del");
+        System.out.println("  tablero, se convierte en dama (o rey), generalmente colocando otra");
+        System.out.println("  -Movimiento de la dama: En las damas inglesas, la dama se mueve también");
+        System.out.println("  una sola casilla en diagonal, pero puede avanzar o retroceder (a");
+        System.out.println("  diferencia del peón normal). (Nota: Algunas variantes permiten despla-");
+        System.out.println("  zamiento largo, pero la regla estricta inglesa limita el rey a un paso");
+        System.out.println("  en cualquier dirección diagonal).");
+        System.out.println("--------------------------------------------------------------------------");
+        System.out.println("                             FIN DEL JUEGO.");
+        System.out.println("  -Victoria: Gana el jugador que captura todas las piezas del rival o");
+        System.out.println("  o deja al adversario sin movimientos válidos.");
+        System.out.println("  -Empate: Se declara tablas si ambos jugadores acuerdan el empate o la");
+        System.out.println("  posición no permite avanzar hacia la victoria.");
+        System.out.println("==========================================================================");
+        System.out.println("");
+    }
+    
+    private static void inicializarPiezas() {
+        for (int f = 0; f < TAMANO_TABLERO; f++) {
+            for (int c = 0; c < TAMANO_TABLERO; c++) {
+                if ((f + c) % 2 != 0) {
+                    if (f < 3) tablero[f][c] = 2;      // Blancas arriba
+                    else if (f > 4) tablero[f][c] = 1; // Rojas abajo
+                }
+            }
+        }
+    }
+
+    private static void imprimirTablero() {
+        limpiar();
+        System.out.println("\n  0 1 2 3 4 5 6 7 (Cols)");
+        for (int f = 0; f < TAMANO_TABLERO; f++) {
+            System.out.print(f + " ");
+            for (int c = 0; c < TAMANO_TABLERO; c++) {
+                if (tablero[f][c] == 1) {
+                    System.out.print("R ");
+                } else if (tablero[f][c] == 2) {
+                    System.out.print("B ");
+                } else if (tablero[f][c] == 3) {
+                    System.out.print("DR ");
+                } else if (tablero[f][c] == 4) {
+                    System.out.print("DB ");
+                } else if ((f + c) % 2 != 0) {
+                    System.out.print(". "); // Casilla jugable vacia
+                } else {
+                    System.out.print("  "); // Casilla no jugable
+                }
+            }
+            System.out.println();
+        }
+        System.out.println();
+    }
+    
+    // Verifica si la pieza pertenece al jugador con el turno actual
+    private static boolean esPropia(int pieza, int turno) {
+        if (turno == 1) return pieza == 1 || pieza == 3;
+        if (turno == 2) return pieza == 2 || pieza == 4;
+        return false;
+    }
+
+    // Verifica si la pieza intermedia es de un rival
+    private static boolean esEnemiga(int pieza, int turno) {
+        if (pieza == 0) return false;
+        return !esPropia(pieza, turno);
+    }
+
+    // Promueve a Dama (Rey) cuando la pieza llega a la última fila enemiga
+    private static void verificarCoronacion(int fila, int col) {
+        if (tablero[fila][col] == 1 && fila == 0) {
+            tablero[fila][col] = 3; // Peón rojo se convierte en Dama Roja (DR)
+        } else if (tablero[fila][col] == 2 && fila == 7) {
+            tablero[fila][col] = 4; // Peón blanco se convierte en Dama Blanca (DB)
+        }
+    }
+
+    private static boolean realizarMovimiento(int fOrigen, int cOrigen, int fDestino, int cDestino) {
+        // Validar rangos del tablero
+        if (fOrigen < 0 || fOrigen >= 8 || cOrigen < 0 || cOrigen >= 8 ||
+            fDestino < 0 || fDestino >= 8 || cDestino < 0 || cDestino >= 8) {
+            return false;
+        }
+
+        int pieza = tablero[fOrigen][cOrigen];
+
+        // Debe haber una ficha propia en el origen y el destino debe estar vacío
+        if (!esPropia(pieza, turnoActual) || tablero[fDestino][cDestino] != 0) {
+            return false;
+        }
+
+        int distFila = fDestino - fOrigen;
+        int distCol = Math.abs(cDestino - cOrigen);
+        boolean esDama = (pieza == 3 || pieza == 4);
+        boolean capturaObligatoria = hayCapturasDisponibles();
+
+        // 1. Movimiento simple diagonal de 1 casilla (solo permitido si NO hay capturas obligatorias)
+        if (Math.abs(distFila) == 1 && distCol == 1) {
+            if (capturaObligatoria) {
+                System.out.println("\n[!] Movimiento invalido: Tienes una captura obligatoria disponible.");
+                return false;
+            }
+
+            if (!esDama) {
+                int direccion = (turnoActual == 1) ? -1 : 1;
+                if (distFila != direccion) return false;
+            }
+            tablero[fDestino][cDestino] = pieza;
+            tablero[fOrigen][cOrigen] = 0;
+            verificarCoronacion(fDestino, cDestino);
+            return true;
+        }
+
+        // 2. Movimiento de captura (Salto diagonal de 2 casillas)
+        if (Math.abs(distFila) == 2 && distCol == 2) {
+            if (!esDama) {
+                int direccionCaptura = (turnoActual == 1) ? -2 : 2;
+                if (distFila != direccionCaptura) return false;
+            }
+
+            int fInter = (fOrigen + fDestino) / 2;
+            int cInter = (cOrigen + cDestino) / 2;
+            int piezaIntermed = tablero[fInter][cInter];
+
+            // Si hay una ficha enemiga en la casilla intermedia, se captura
+            if (esEnemiga(piezaIntermed, turnoActual)) {
+                tablero[fDestino][cDestino] = pieza;
+                tablero[fOrigen][cOrigen] = 0;
+                tablero[fInter][cInter] = 0; // Remueve la pieza comida del tablero
+                verificarCoronacion(fDestino, cDestino);
+                return true;
+            }
+        }
+
+        return false;
+    }
+    
+    // Comprueba si una pieza especifica en (f, c) tiene alguna opción de captura disponible
+    private static boolean puedeComer(int f, int c) {
+        int pieza = tablero[f][c];
+        if (!esPropia(pieza, turnoActual)) return false;
+
+        boolean esDama = (pieza == 3 || pieza == 4);
+        int[] df = esDama ? new int[]{-2, -2, 2, 2} : (turnoActual == 1 ? new int[]{-2, -2} : new int[]{2, 2});
+        int[] dc = esDama ? new int[]{-2, 2, -2, 2} : new int[]{-2, 2};
+
+        for (int i = 0; i < df.length; i++) {
+            int fDestino = f + df[i];
+            int cDestino = c + dc[i];
+
+            if (fDestino >= 0 && fDestino < 8 && cDestino >= 0 && cDestino < 8) {
+                if (tablero[fDestino][cDestino] == 0) {
+                    int fInter = (f + fDestino) / 2;
+                    int cInter = (c + cDestino) / 2;
+                    if (esEnemiga(tablero[fInter][cInter], turnoActual)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    
+    // Revisa si existe AL MENOS UNA captura obligatoria para el jugador actual en todo el tablero
+    private static boolean hayCapturasDisponibles() {
+        for (int f = 0; f < TAMANO_TABLERO; f++) {
+            for (int c = 0; c < TAMANO_TABLERO; c++) {
+                if (puedeComer(f, c)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    private static int leerEntero(Scanner sc, String mensaje) {
+        while (true) {
+            System.out.print(mensaje);
+            if (sc.hasNextInt()) {
+                return sc.nextInt();
+            } else {
+                System.out.println("Debes ingresar solo numeros.");
+                sc.next(); // Limpia la entrada no valida
+            }
+        }
+    }
+    
+    public static void main(String[] args) {
+    Scanner entrada = new Scanner(System.in);
+    
+		int op;
+    	
+        	do {
+            	System.out.println("");
+                System.out.println("============================");
+            	System.out.println("       DAMAS INGLESAS.");
+            	System.out.println("============================");
+            	System.out.println("");
+            	System.out.println("   1. Reglas del juego.");
+            	System.out.println("   2. Iniciar la partida.");
+            	System.out.println("   3. Salir del juego.");
+            	System.out.println("");
+            	System.out.println("============================");
+            	System.out.println("");
+                            	
+                op = leerEntero(entrada, "Selecciona una opcion: ");
+            	switch (op) {
+                            	    
+            		case 1:
+            		    limpiar();
+                		reglamento();
+            			break;
+                	case 2:
+                	    limpiar();
+                		inicializarPiezas();
+                        while (true) {
+                            imprimirTablero();
+                            String jugador = (turnoActual == 1) ? "Rojas (R)" : "Blancas (B)";
+                            System.out.println("Turno de las " + jugador);
+                            System.out.print("Fila y Columna de la ficha a mover (ej. 5 2): ");
+                            int fOrigen = leerEntero(entrada, "Fila: ");
+                            int cOrigen = leerEntero(entrada, "Columna: ");
+                            
+                            System.out.print("Fila y Columna destino (ej. 4 3): ");
+                            int fDestino = leerEntero(entrada, "Fila: ");
+                            int cDestino = leerEntero(entrada, "Columna: ");
+                            
+                            if (realizarMovimiento(fOrigen, cOrigen, fDestino, cDestino)) {
+                                turnoActual = (turnoActual == 1) ? 2 : 1;
+                            } else {
+                                System.out.println("\nMovimiento invalido. Intenta de nuevo.\n");
+                            }
+                        }
+                	case 3: 
+                	    limpiar();
+                	    System.out.println("");
+                	    System.out.println("=======================");
+                	    System.out.println(" Gracias por jugar :D.");
+                	    System.out.println("=======================");
+                	    System.out.println("");
+                	    System.exit(0);
+                	    break;
+            		default:
+            		    limpiar();
+            			System.out.println("Operacion no valida.");
+            	}
+            } while (op != 3);
+		}
+	}
