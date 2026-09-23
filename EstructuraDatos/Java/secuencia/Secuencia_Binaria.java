@@ -1,4 +1,4 @@
-public class SecuencialBinaria {
+public class Secuencia_Binaria {
 
     // busqueda secuencial
     static int busquedaSecuencial(int[] lista, int objetivo) {
