@@ -1,6 +1,6 @@
 using System;
 
-class SecuencialBinaria
+class Secuencia_Binaria
 {
     // busqueda secuencial
     static int BusquedaSecuencial(int[] lista, int objetivo)
