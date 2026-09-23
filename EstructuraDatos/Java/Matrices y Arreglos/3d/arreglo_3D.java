@@ -1,4 +1,4 @@
-public class Array3D {
+public class arreglo_3D {
     public static void main(String[] args) {
         int[][][] threeDimensionalArray = {
             {
