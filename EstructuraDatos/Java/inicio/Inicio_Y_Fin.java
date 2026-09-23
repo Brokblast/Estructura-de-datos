@@ -1,7 +1,7 @@
 import java.util.ArrayList;
 import java.util.List;
 
-public class InicioYFin {
+public class Inicio_Y_Fin {
     public static void main(String[] args) {
         // Insercion al inicio
         List<String> abecedario = new ArrayList<>(List.of("a", "b", "c", "d"));
